@@ -8,14 +8,14 @@ import h5py
 
 beam0 = ["BEAM0000", "BEAM0001", "BEAM0010", "BEAM0011"]
 beam1 = ["BEAM0101", "BEAM0110", "BEAM1000", "BEAM1011"]
-GEDI_loc = r"E:\GEDI\GEDI_archive"
+GEDI_loc = r"F:\GEDI\GEDI_archive"
 GEDI_L2A_dir = GEDI_loc + r"/GEDI02A/Amazon/"
 GEDI_L2B_dir = GEDI_loc + r"/GEDI02B/Amazon/"
 CSV_dir = GEDI_loc + r"/SA.csv"
-Result_dir = r"E:\GEDI\Result_Luther\Basic_GEDI/"
+Result_dir = r"F:\GEDI\Result_Luther\Result_11132024\GEDI/"
 
 
-coordinate_output = Result_dir  + "GEDI_Amazon_01272024.csv"
+coordinate_output = Result_dir  + "GEDI_Amazon_11132024.csv"
 coordinate_initial = []
 df_coordinate_initial = pd.DataFrame(coordinate_initial)
 df_geo = pd.read_csv(CSV_dir, sep=",")
@@ -25,6 +25,7 @@ lon_max = -59.734444
 lon_min = -60.151111
 #-2.484444,-60.151111
 #-2.317222,-59.734444
+
 HDF_folder = os.listdir(GEDI_L2A_dir)
 #for i in range(6):
 for files in HDF_folder:
@@ -88,16 +89,44 @@ for files in HDF_folder:
                                head + '_50', head + '_70', head + '_90',
                                head + '_95', head + '_98', head + '_100']
             #L2B metrics -z 5m interval
-            df_fhd = pd.DataFrame(np.array(f_L2B[b + '/fhd_normal'][index_result]))
-            df_cover_z = pd.DataFrame(np.array(f_L2B[b + '/cover_z'][index_result]))
-            df_pai_z = pd.DataFrame(np.array(f_L2B[b + '/pai_z'][index_result]))
-            df_pavd_z = pd.DataFrame(np.array(f_L2B[b + '/pavd_z'][index_result]))
-            df_cover = df_cover_z.loc[:, 0]
-            df_pai = df_pai_z.loc[:, 0]
-            df_pavd = df_pavd_z.loc[:, 0]
-            df_covers = df_cover_z.select_dtypes(np.number).gt(0).sum(axis=1)
-            df_pais = df_pai_z.select_dtypes(np.number).gt(0).sum(axis=1)
-            df_pavds = df_pavd_z.select_dtypes(np.number).gt(0).sum(axis=1)
+            df_fhd = pd.DataFrame(np.array(f_L2B[b + '/fhd_normal'][index_result]), columns=['FHD'])
+
+            df_cover_a = pd.DataFrame(np.array(f_L2B[b + '/cover_z'][index_result]))
+            df_cover_list = df_cover_a.loc[:, range(10)]
+            head = "cover"
+            df_cover_list.columns = [head + '_5', head + '_10', head + '_15',
+                                     head + '_20', head + '_25', head + '_30',
+                                     head + '_35', head + '_40', head + '_45', head + '_50']
+            df_pai_a = pd.DataFrame(np.array(f_L2B[b + '/pai_z'][index_result]))
+            df_pai_list = df_pai_a.loc[:, range(10)]
+            head = "pai"
+            df_pai_list.columns = [head + '_5', head + '_10', head + '_15',
+                                     head + '_20', head + '_25', head + '_30',
+                                     head + '_35', head + '_40', head + '_45', head + '_50']
+            df_pavd_a = pd.DataFrame(np.array(f_L2B[b + '/pavd_z'][index_result]))
+            df_pavd_list = df_pavd_a.loc[:, range(10)]
+            head = "pavd"
+            df_pavd_list.columns = [head + '_5', head + '_10', head + '_15',
+                                     head + '_20', head + '_25', head + '_30',
+                                     head + '_35', head + '_40', head + '_45', head + '_50']
+
+            def count_local_maxima(df, suffix):
+                def count_local_maxima(nums):
+                    count = 0
+                    for i in range(1, len(nums) - 1):
+                        if nums[i] > nums[i - 1] + 0.1 * nums[i] and \
+                                nums[i] > nums[i + 1] + 0.1 * nums[i] \
+                                and nums[i] > 0:
+                            count += 1
+                    return count
+                df_c = df.apply(lambda row: count_local_maxima(row.values), axis=1)
+                df_c = pd.DataFrame(df_c, columns=[suffix])
+                return df_c
+
+            df_covers = count_local_maxima(df_cover_a, "cover_LMC")
+            df_pais = count_local_maxima(df_pai_a, "pai_LMC")
+            df_pavds = count_local_maxima(df_pavd_a, "pavd_LMC")
+
             def sum_first_half(row):
                 non_negative_values = [value for value in row if value not in [-9999.0,0.0, np.inf]]
                 half_index = len(non_negative_values) // 2
@@ -112,14 +141,18 @@ for files in HDF_folder:
                     return sum(row[half_index + 1:]) + 0.5 * row[half_index]
                 else:
                     return sum(row[half_index:])
-            df_cover_ratio = df_cover_z.apply(sum_first_half, axis=1)/df_cover_z.apply(sum_last_half, axis=1)
-            df_pai_ratio = df_cover_z.apply(sum_first_half, axis=1)/df_pai_z.apply(sum_last_half,axis=1)
-            df_pavd_ratio = df_cover_z.apply(sum_first_half, axis=1)/df_pavd_z.apply(sum_last_half,axis=1)
-            df_profile = pd.concat([df_shot,df_lat,df_long,df_quality_l2A,df_quality_l2B,df_rh_a,df_fhd,
-                                    df_cover,df_pai,df_pavd,
-                                    df_covers,df_pais,df_pavds,
-                                    df_cover_ratio, df_pai_ratio, df_pavd_ratio,
-                                    df_sensitivity,df_sf,df_dif,df_pft_class,df_region_class,df_lwp,df_up], axis=1)
+            df_cover_ratio = df_cover_list.apply(sum_first_half, axis=1)/df_cover_list.apply(sum_last_half, axis=1)
+            df_pai_ratio = df_pai_list.apply(sum_first_half, axis=1)/df_pai_list.apply(sum_last_half, axis=1)
+            df_pavd_ratio = df_pavd_list.apply(sum_first_half, axis=1)/df_pavd_list.apply(sum_last_half, axis=1)
+            df_cover_ratio = pd.DataFrame(df_cover_ratio, columns=["cover_ratio"])
+            df_pai_ratio = pd.DataFrame(df_pai_ratio, columns=["pai_ratio"])
+            df_pavd_ratio = pd.DataFrame(df_pavd_ratio, columns=["pavd_ratio"])
+            df_profile = pd.concat([df_shot, df_lat, df_long,
+                                    df_quality_l2A, df_quality_l2B, df_rh_a,
+                                    df_fhd, df_cover_list, df_pai_list, df_pavd_list,
+                                    df_covers, df_pais, df_pavds, df_cover_ratio, df_pai_ratio, df_pavd_ratio,
+                                    df_sensitivity, df_sf, df_dif, df_pft_class, df_region_class, df_lwp, df_up],
+                                   axis=1)
             #df_profile = df_profile.loc[index_result, :]
             df_coordinate_initial = pd.concat([df_coordinate_initial,df_profile])
         else:
