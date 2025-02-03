@@ -27,6 +27,19 @@ library(stats)
 library(caret)
 library(randomForest)
 
+#table merge
+dir <- "F:\\GEDI\\Result_Luther\\Result_11132024\\GEDI\\GEDI_sel.csv"
+Data = read.csv(dir,header=T)
+df_mean <- Data %>%
+  group_by(Site) %>%
+  summarise(across(everything(), mean, na.rm = TRUE))
+
+# Display the result
+print(df_mean)
+write.csv(df_mean, file = "F:\\GEDI\\Result_Luther\\Result_11132024\\GEDI\\GEDI_sel_mean.csv")
+
+
+
 # ------------------------------------------------------------------------------------------------ #
 #rfe
 dir = "E:\\GEDI\\Result_Luther\\Result\\Biodiversity0206.xlsx"
@@ -44,16 +57,61 @@ for(i in 1:100){
 }
 table(list)
 
-#variable selection
+
+
+##randomforest method 
+dir = "E:\\GEDI\\Result_Luther\\Result\\Biodiversity0206.xlsx"
+Data = read_excel(dir, sheet = "Biodiversity")
+Data <- subset(Data, select = -c(Site,AA))
+list_top <- list()
+for (i in 1:100){
+  rf <- randomForest(SR ~ ., 
+                     data = Data[,c(2,18:37)],ntree = 501,importance=TRUE, mtry = 4)
+  #varImpPlot(rf)
+  #importance(rf)
+  a<- varImp(rf)
+  a <- cbind(var = rownames(a), a)
+  a <- a[order(-a$Overall),]
+  a <- head(a$var, 5)
+  list_top <- append(list_top,a)
+}
+
+summary_top <- table(unlist(list_top))
+summary_top
+
+
+
+##caret method 
 dir = "E:\\GEDI\\Result_Luther\\Result\\Biodiversity0206.xlsx"
 Data = read_excel(dir, sheet = "Biodiversity")
 Data <- subset(Data, select = -c(Site,SR))
-rf <- randomForest(AA ~ ., 
-                   data = Data[,c(1,17:36)],ntree = 100,importance=TRUE, nodesize = 20)
-importance(rf)
-varImpPlot(rf)
-varImp(rf)
+list_top <- list()
+list_r2 <- list()
+list_rmse <- list()
+for (i in 1:100){
+  repeat_cv <- trainControl(method='cv', number=5)
+  rf <- train(
+    AA ~ .,
+    data=Data[,c(2,18:37)], 
+    method='rf', 
+    ntree=501,
+    tuneGrid = expand.grid(.mtry=c(4)) ,
+    trControl=repeat_cv)
+  a<- varImp(rf)
+  a<- a$importance
+  a <- cbind(var = rownames(a), a)
+  a <- a[order(-a$Overall),]
+  a <- head(a$var, 5)
+  list_top <- append(list_top,a)
+  list_r2 <- append(list_r2,rf$results[,3])
+  list_rmse <- append(list_rmse,rf$results[,2])
+}
 
+table(unlist(list_top))
+mean(unlist(list_r2))
+sd(unlist(list_r2))
+mean(unlist(list_rmse))
+sd(unlist(list_rmse))
 
 # ------------------------------------------------------------------------------------------------ #
 #L2B vs. L2A RH98 
