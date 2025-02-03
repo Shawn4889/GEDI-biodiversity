@@ -110,47 +110,9 @@ for files in HDF_folder:
                                      head + '_20', head + '_25', head + '_30',
                                      head + '_35', head + '_40', head + '_45', head + '_50']
 
-            def count_local_maxima(df, suffix):
-                def count_local_maxima(nums):
-                    count = 0
-                    for i in range(1, len(nums) - 1):
-                        if nums[i] > nums[i - 1] + 0.1 * nums[i] and \
-                                nums[i] > nums[i + 1] + 0.1 * nums[i] \
-                                and nums[i] > 0:
-                            count += 1
-                    return count
-                df_c = df.apply(lambda row: count_local_maxima(row.values), axis=1)
-                df_c = pd.DataFrame(df_c, columns=[suffix])
-                return df_c
-
-            df_covers = count_local_maxima(df_cover_a, "cover_LMC")
-            df_pais = count_local_maxima(df_pai_a, "pai_LMC")
-            df_pavds = count_local_maxima(df_pavd_a, "pavd_LMC")
-
-            def sum_first_half(row):
-                non_negative_values = [value for value in row if value not in [-9999.0,0.0, np.inf]]
-                half_index = len(non_negative_values) // 2
-                if len(row) % 2 == 1:
-                    return sum(row[:half_index]) + 0.5 * row[half_index]
-                else:
-                    return sum(row[:half_index])
-            def sum_last_half(row):
-                non_negative_values = [value for value in row if value not in [-9999.0,0.0, np.inf]]
-                half_index = len(non_negative_values) // 2
-                if len(row) % 2 == 1:
-                    return sum(row[half_index + 1:]) + 0.5 * row[half_index]
-                else:
-                    return sum(row[half_index:])
-            df_cover_ratio = df_cover_list.apply(sum_first_half, axis=1)/df_cover_list.apply(sum_last_half, axis=1)
-            df_pai_ratio = df_pai_list.apply(sum_first_half, axis=1)/df_pai_list.apply(sum_last_half, axis=1)
-            df_pavd_ratio = df_pavd_list.apply(sum_first_half, axis=1)/df_pavd_list.apply(sum_last_half, axis=1)
-            df_cover_ratio = pd.DataFrame(df_cover_ratio, columns=["cover_ratio"])
-            df_pai_ratio = pd.DataFrame(df_pai_ratio, columns=["pai_ratio"])
-            df_pavd_ratio = pd.DataFrame(df_pavd_ratio, columns=["pavd_ratio"])
             df_profile = pd.concat([df_shot, df_lat, df_long,
                                     df_quality_l2A, df_quality_l2B, df_rh_a,
                                     df_fhd, df_cover_list, df_pai_list, df_pavd_list,
-                                    df_covers, df_pais, df_pavds, df_cover_ratio, df_pai_ratio, df_pavd_ratio,
                                     df_sensitivity, df_sf, df_dif, df_pft_class, df_region_class, df_lwp, df_up],
                                    axis=1)
             #df_profile = df_profile.loc[index_result, :]
